@@ -6,13 +6,13 @@
 /*   By: tkern <tkern@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/11/02 18:09:17 by tkern             #+#    #+#             */
-/*   Updated: 2026/11/09 16:19:08 by tkern            ###   ########.fr       */
+/*   Updated: 2026/11/17 15:27:56 by tkern            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "codexion.h"
 
-/* Like sleep_ms, but returns early when the simulation stops */
+/* usleep in small steps until the end, or until the simulation stops */
 static void	coder_sleep(t_sim *sim, long ms)
 {
 	long	end;
@@ -56,7 +56,11 @@ static int	take_dongles(t_coder *coder)
 	return (0);
 }
 
-/* Returns -1 if the simulation stopped while waiting for dongles. */
+/*
+** Returns -1 if the simulation stopped while waiting for dongles.
+** "is debugging" is printed before the release, so a neighbour can never
+** log "is compiling" with our dongle while we still look like compiling
+*/
 static int	compile(t_coder *coder)
 {
 	t_config	*cfg;
@@ -72,6 +76,7 @@ static int	compile(t_coder *coder)
 	pthread_mutex_lock(&coder->mutex);
 	coder->compiles_done++;
 	pthread_mutex_unlock(&coder->mutex);
+	log_state(coder, MSG_DEBUGGING);
 	release_dongle(coder->left, cfg->dongle_cooldown);
 	release_dongle(coder->right, cfg->dongle_cooldown);
 	return (0);
@@ -87,7 +92,6 @@ void	*coder_routine(void *arg)
 	{
 		if (compile(coder) < 0)
 			break ;
-		log_state(coder, MSG_DEBUGGING);
 		coder_sleep(coder->sim, coder->sim->config.time_to_debug);
 		log_state(coder, MSG_REFACTOR);
 		coder_sleep(coder->sim, coder->sim->config.time_to_refactor);

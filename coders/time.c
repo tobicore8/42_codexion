@@ -6,7 +6,7 @@
 /*   By: tkern <tkern@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/11/02 17:12:07 by tkern             #+#    #+#             */
-/*   Updated: 2026/11/04 17:01:05 by tkern            ###   ########.fr       */
+/*   Updated: 2026/11/18 15:15:58 by tkern            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,14 +25,4 @@ long	get_time_ms(void)
 long	get_elapsed_ms(t_sim *sim)
 {
 	return (get_time_ms() - sim->start_time);
-}
-
-/* usleep alone can overshoot, so sleep in small steps until the end */
-void	sleep_ms(long ms)
-{
-	long	end;
-
-	end = get_time_ms() + ms;
-	while (get_time_ms() < end)
-		usleep(500);
 }

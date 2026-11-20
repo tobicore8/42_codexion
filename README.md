@@ -29,7 +29,6 @@ cooldown on each dongle and a fair scheduling policy (`fifo` or `edf`).
 ### Compilation
 
 ```sh
-cd coders
 make
 ```
 
@@ -76,6 +75,72 @@ Every state change is printed as `timestamp_in_ms coder_id message`:
 801 3 burned out
 ```
 
+## Program flow
+
+### Main thread
+
+```mermaid
+flowchart TD
+    A([main]) --> B[parse_args]
+    B -- invalid --> X1([print usage, exit 1])
+    B -- ok --> C[sim_init: allocate coders, dongles, mutexes]
+    C -- error --> X2([exit 1])
+    C -- ok --> D[start_simulation: set start_time and every last_compile_start]
+    D --> E[create one thread per coder]
+    E --> F[create the monitor thread]
+    F --> G[join the monitor]
+    G --> H[join every coder]
+    H --> I[sim_destroy: destroy mutexes, free memory]
+    I --> J([exit 0])
+```
+
+### Coder thread
+
+```mermaid
+flowchart TD
+    S([coder_routine]) --> T{stopped?}
+    T -- yes --> END([return])
+    T -- no --> P{odd id?}
+    P -- yes --> L[acquire left, then right]
+    P -- no --> R[acquire right, then left]
+    L --> OK{both taken?}
+    R --> OK
+    OK -- "no (stopped, or single coder)" --> REL[release the dongle held] --> END
+    OK -- yes --> C1[last_compile_start = now<br/>log 2x taken + is compiling]
+    C1 --> C2[sleep time_to_compile]
+    C2 --> C3[compiles_done++<br/>log is debugging<br/>release both dongles, start cooldown]
+    C3 --> D1[sleep time_to_debug]
+    D1 --> R1[log is refactoring<br/>sleep time_to_refactor]
+    R1 --> T
+```
+
+### Taking a dongle (`acquire_dongle`)
+
+```mermaid
+flowchart TD
+    A([acquire_dongle]) --> B[lock dongle mutex]
+    B --> C["push request into the queue<br/>key = ticket (fifo) or deadline (edf)"]
+    C --> D{stopped?}
+    D -- yes --> F([unlock, return -1])
+    D -- no --> E{first in queue<br/>and dongle free?}
+    E -- no --> W1[pthread_cond_wait] --> D
+    E -- yes --> G{cooldown over?}
+    G -- no --> W2[pthread_cond_timedwait<br/>until available_at] --> D
+    G -- yes --> H[pop request, in_use = 1]
+    H --> I([unlock, return 0])
+```
+
+### Monitor thread
+
+```mermaid
+flowchart TD
+    A([monitor_routine]) --> B{a coder went more than<br/>time_to_burnout ms<br/>without starting a compile?}
+    B -- yes --> C[log burned out and set stop<br/>wake every dongle] --> Z([return])
+    B -- no --> D{every coder reached<br/>number_of_compiles_required?}
+    D -- yes --> E[set stop, wake every dongle] --> Z
+    D -- no --> F[usleep 500 µs] --> B
+```
+
 ## Blocking cases handled
 
 ### Deadlock (Coffman's conditions)
@@ -104,6 +169,10 @@ only take the dongle when their request is at the top:
   requests are served in arrival order. Tickets are unique, so there are no ties.
 - `edf`: the key is `last_compile_start + time_to_burnout`, so the coder closest
   to burning out is served first.
+  **Tie-breaker:** when two requests have the same deadline, the coder with
+  the smaller id is served first (`heap_less` in `heap_utils.c`). This keeps
+  the EDF order fully deterministic, for example at the start, when every
+  coder has the same deadline.
 
 Because a released dongle always goes to the head of the queue, a coder can
 never be overtaken forever by a faster neighbour.
@@ -213,7 +282,7 @@ same order:
 | `heap.c`, `heap_utils.c` | The priority queue used by each dongle               |
 | `log.c`              | Serialized output                                        |
 | `stop.c`             | Stop flag and waking up blocked coders                   |
-| `time.c`             | Time in milliseconds and precise sleeping                |
+| `time.c`             | Time in milliseconds                                     |
 
 ## Resources
 

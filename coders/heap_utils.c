@@ -21,6 +21,17 @@ void	heap_swap(t_request *a, t_request *b)
 	*b = tmp;
 }
 
+/*
+** Returns 1 if a must be served before b. Smaller key first; on equal
+** keys (same EDF deadline) the smaller coder id wins (tie-breaker)
+*/
+static int	heap_less(t_request *a, t_request *b)
+{
+	if (a->key != b->key)
+		return (a->key < b->key);
+	return (a->coder_id < b->coder_id);
+}
+
 /* Move the item at index i up until its parent is not bigger */
 void	heap_sift_up(t_heap *heap, int i)
 {
@@ -29,7 +40,7 @@ void	heap_sift_up(t_heap *heap, int i)
 	while (i > 0)
 	{
 		parent = (i - 1) / 2;
-		if (heap->data[parent].key <= heap->data[i].key)
+		if (!heap_less(&heap->data[i], &heap->data[parent]))
 			return ;
 		heap_swap(&heap->data[parent], &heap->data[i]);
 		i = parent;
@@ -49,10 +60,10 @@ void	heap_sift_down(t_heap *heap, int i)
 		right = 2 * i + 2;
 		smallest = i;
 		if (left < heap->size
-			&& heap->data[left].key < heap->data[smallest].key)
+			&& heap_less(&heap->data[left], &heap->data[smallest]))
 			smallest = left;
 		if (right < heap->size
-			&& heap->data[right].key < heap->data[smallest].key)
+			&& heap_less(&heap->data[right], &heap->data[smallest]))
 			smallest = right;
 		if (smallest == i)
 			return ;

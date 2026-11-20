@@ -3,11 +3,13 @@ NAME	= codexion
 CC		= cc
 CFLAGS	= -Wall -Wextra -Werror -pthread
 
+DIR		= coders
 SRCS	= codexion.c parse.c time.c sim_setup.c dongle_setup.c \
 		  coder_setup.c heap.c heap_utils.c log.c stop.c dongle.c \
 		  coder.c monitor.c
+SRCS	:= $(addprefix $(DIR)/, $(SRCS))
 OBJS	= $(SRCS:.c=.o)
-HEADER	= codexion.h
+HEADER	= $(DIR)/codexion.h
 
 all: $(NAME)
 

@@ -120,7 +120,6 @@ int		parse_args(int argc, char **argv, t_config *cfg);
 /* time.c */
 long	get_time_ms(void);
 long	get_elapsed_ms(t_sim *sim);
-void	sleep_ms(long ms);
 
 /* log.c */
 void	log_state(t_coder *coder, const char *message);
